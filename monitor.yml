@@ -1,0 +1,41 @@
+name: Gold Rush Monitor
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # her 5 dakikada bir
+  workflow_dispatch:          # elle de tetiklenebilir (test icin)
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repo'yu cek
+        uses: actions/checkout@v4
+
+      - name: Hash cache'i yukle
+        uses: actions/cache@v4
+        with:
+          path: last_hash.txt
+          key: gold-rush-hash-${{ github.run_id }}
+          restore-keys: |
+            gold-rush-hash-
+
+      - name: Python kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Bagimliliklar
+        run: pip install requests beautifulsoup4
+
+      - name: Kontrol et
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python check.py
+
+      - name: Hash'i kaydet
+        uses: actions/cache/save@v4
+        with:
+          path: last_hash.txt
+          key: gold-rush-hash-${{ github.run_id }}
