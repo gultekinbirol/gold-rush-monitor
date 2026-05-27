@@ -1,11 +1,13 @@
 import requests
 import os
 import hashlib
+import sys
 from bs4 import BeautifulSoup
 
 CHECK_URL   = "https://www.europesegoudstandaard.be/nl/gold-rush-1"
 PLACEHOLDER = "De laatste hint komt hier te staan"
 NTFY_TOPIC  = os.environ.get("NTFY_TOPIC", "goldrush-reis-2026")
+TEST_MODE   = os.environ.get("TEST_MODE", "false").lower() == "true"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -18,21 +20,29 @@ HEADERS = {
 def fetch():
     resp = requests.get(CHECK_URL, headers=HEADERS, timeout=15)
     resp.raise_for_status()
-    soup = BeautifulSoup(resp.text, "html.parser")
-    return soup.get_text(separator=" ", strip=True)
+    return BeautifulSoup(resp.text, "html.parser")
 
-def notify(message):
-    requests.post(
+def get_hint_h2(soup):
+    """Sayfadaki h2 iceriğini döndürür."""
+    for h2 in soup.find_all("h2"):
+        text = h2.get_text(strip=True)
+        if text:
+            return text
+    return ""
+
+def notify(title, message):
+    resp = requests.post(
         f"https://ntfy.sh/{NTFY_TOPIC}",
         data=message.encode("utf-8"),
         headers={
-            "Title": "GOLD RUSH - SON IPUCU YAYINDA!",
+            "Title": title,
             "Priority": "urgent",
             "Tags": "rotating_light,trophy",
             "Click": CHECK_URL,
         },
         timeout=10,
     )
+    print(f"ntfy status: {resp.status_code}")
 
 def load_hash():
     try:
@@ -45,19 +55,36 @@ def save_hash(h):
     with open("last_hash.txt", "w") as f:
         f.write(h)
 
-text = fetch()
-current_hash = hashlib.md5(text.encode()).hexdigest()
+# TEST MODU - sadece bildirim test eder, sayfaya bakmaz
+if TEST_MODE:
+    print("TEST MODU - bildirim gonderiliyor...")
+    notify(
+        "Gold Rush Monitor TEST",
+        f"Test bildirimi basarili! Script hazir. URL: {CHECK_URL}"
+    )
+    print("Bitti.")
+    sys.exit(0)
+
+# NORMAL MOD
+soup = fetch()
+h2_text = get_hint_h2(soup)
+page_text = soup.get_text(separator=" ", strip=True)
+current_hash = hashlib.md5(page_text.encode()).hexdigest()
 previous_hash = load_hash()
 
-hint_live = PLACEHOLDER not in text
+hint_live = PLACEHOLDER not in page_text
 
 print(f"Placeholder aktif: {not hint_live}")
+print(f"H2 icerigi: {h2_text[:80]}")
 print(f"Hash: {current_hash[:8]}... | Onceki: {str(previous_hash)[:8]}...")
 
 if hint_live:
-    print("SON IPUCU CANLI! Bildirim gonderiliyor...")
-    notify(f"Son ipucu yayinlandi! Hemen git: {CHECK_URL}")
+    print("SON IPUCU CANLI!")
+    notify(
+        "GOLD RUSH - SON IPUCU YAYINDA!",
+        f"Son ipucu: {h2_text[:200]}\n\nHemen git: {CHECK_URL}"
+    )
 elif previous_hash and current_hash != previous_hash:
-    print("Sayfa degisti ama placeholder hala var.")
+    print("Sayfa degisti, placeholder hala var.")
 
 save_hash(current_hash)
