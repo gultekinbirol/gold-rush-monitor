@@ -17,4 +17,5 @@ jobs:
       - name: Kontrol
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          TEST_MODE: ${{ secrets.TEST_MODE }}
         run: python check.py
