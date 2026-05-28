@@ -1,26 +1,29 @@
 import requests
 import os
 import hashlib
+import time
 from bs4 import BeautifulSoup
 
-CHECK_URL        = "https://www.europesegoudstandaard.be/nl/gold-rush-1"
-PLACEHOLDER      = "De laatste hint komt hier te staan"
-NTFY_TOPIC       = os.environ.get("NTFY_TOPIC", "goldrush-reis-2026")
+CHECK_URL   = "https://www.europesegoudstandaard.be/nl/gold-rush-1"
+PLACEHOLDER = "De laatste hint komt hier te staan"
+NTFY_TOPIC  = os.environ.get("NTFY_TOPIC", "goldrush-reis-2026")
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Cache-Control": "no-cache, no-store, must-revalidate",
     "Pragma": "no-cache",
+    "Expires": "0",
     "Accept-Language": "nl-BE,nl;q=0.9",
 }
 
 def fetch():
-    resp = requests.get(CHECK_URL, headers=HEADERS, timeout=15)
+    # Timestamp parametresi ile CDN cache'ini atla
+    url = f"{CHECK_URL}?_={int(time.time())}"
+    resp = requests.get(url, headers=HEADERS, timeout=15)
     resp.raise_for_status()
     return BeautifulSoup(resp.text, "html.parser")
 
 def get_main_h2(soup):
-    """Kruimelpad haric ilk anlamli h2'yi dondurur."""
     for h2 in soup.find_all("h2"):
         text = h2.get_text(strip=True)
         if text and text.lower() not in ["kruimelpad", ""]:
@@ -54,20 +57,17 @@ def save_state(page_hash, h2_text):
         f.write(f"{page_hash}\n{h2_text}")
 
 # --- KONTROL ---
-soup        = fetch()
-page_text   = soup.get_text(separator=" ", strip=True)
-h2_text     = get_main_h2(soup)
-page_hash   = hashlib.md5(page_text.encode()).hexdigest()
+soup      = fetch()
+page_text = soup.get_text(separator=" ", strip=True)
+h2_text   = get_main_h2(soup)
+page_hash = hashlib.md5(page_text.encode()).hexdigest()
 prev_hash, prev_h2 = load_state()
 
-# Tetikleyici 1: placeholder metni sayfadan kalktı
 placeholder_gone = PLACEHOLDER not in page_text
-
-# Tetikleyici 2: h2 icerigi degisti (placeholder disinda bir sey oldu)
 h2_changed = (
     prev_h2 is not None and
     h2_text != prev_h2 and
-    h2_text != PLACEHOLDER
+    PLACEHOLDER not in h2_text
 )
 
 print(f"Placeholder var: {not placeholder_gone}")
