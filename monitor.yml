@@ -29,9 +29,10 @@ jobs:
       - name: Bagimliliklar
         run: pip install requests beautifulsoup4
 
-      - name: Kontrol et
+     - name: Kontrol et
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          TEST_MODE: ${{ secrets.TEST_MODE }}
         run: python check.py
 
       - name: Hash'i kaydet
