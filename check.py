@@ -87,3 +87,6 @@ else:
     print("Degisiklik yok, bekleniyor.")
 
 save_state(page_hash, h2_text)
+
+if os.environ.get("TEST_MODE") == "true":
+    notify("TEST", "Sistem calisiyor, bildirim geliyor!")
