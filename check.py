@@ -7,11 +7,9 @@ from bs4 import BeautifulSoup
 CHECK_URL   = "https://www.europesegoudstandaard.be/nl/gold-rush-1"
 PLACEHOLDER = "De laatste hint komt hier te staan"
 NTFY_TOPIC  = os.environ.get("NTFY_TOPIC", "goldrush-reis-2026")
-TEST_MODE   = os.environ.get("TEST_MODE", "false").lower() == "true"
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Cache-Control": "no-cache, no-store, must-revalidate",
     "Pragma": "no-cache",
     "Accept-Language": "nl-BE,nl;q=0.9",
@@ -23,10 +21,9 @@ def fetch():
     return BeautifulSoup(resp.text, "html.parser")
 
 def get_hint_h2(soup):
-    """Sayfadaki h2 iceriğini döndürür."""
     for h2 in soup.find_all("h2"):
         text = h2.get_text(strip=True)
-        if text:
+        if text and text != "Kruimelpad":
             return text
     return ""
 
@@ -55,17 +52,9 @@ def save_hash(h):
     with open("last_hash.txt", "w") as f:
         f.write(h)
 
-# TEST MODU - sadece bildirim test eder, sayfaya bakmaz
-if TEST_MODE:
-    print("TEST MODU - bildirim gonderiliyor...")
-    notify(
-        "Gold Rush Monitor TEST",
-        f"Test bildirimi basarili! Script hazir. URL: {CHECK_URL}"
-    )
-    print("Bitti.")
-    sys.exit(0)
+# Her calistirmada test bildirimi gonder
+notify("Gold Rush Monitor TEST", f"GitHub Actions calisiyor! URL: {CHECK_URL}")
 
-# NORMAL MOD
 soup = fetch()
 h2_text = get_hint_h2(soup)
 page_text = soup.get_text(separator=" ", strip=True)
@@ -84,7 +73,5 @@ if hint_live:
         "GOLD RUSH - SON IPUCU YAYINDA!",
         f"Son ipucu: {h2_text[:200]}\n\nHemen git: {CHECK_URL}"
     )
-elif previous_hash and current_hash != previous_hash:
-    print("Sayfa degisti, placeholder hala var.")
 
 save_hash(current_hash)
